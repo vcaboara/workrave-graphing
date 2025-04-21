@@ -1,0 +1,24 @@
+jenkins:
+  systemMessage: "Jenkins server configured via Configuration as Code"
+securityRealm:
+  local:
+    allowsSignup: false
+    users:
+    - id: "admin"
+      password: "${JENKINS_ADMIN_PASSWORD:-admin}" # Set a strong password!
+authorizationStrategy:
+  unsecured: false # Or use a more secure strategy like Project-based Matrix Authorization
+plugins:
+  - id: "pipeline"
+  - id: "docker-plugin"
+  - id: "git"
+  - id: "workflow-job"
+  - id: "workflow-basic-steps"
+  - id: "workflow-durable-task-step"
+  - id: "workflow-api"
+  - id: "workflow-scm-step"
+  - id: "artifact-deployer"
+  - id: "job-dsl" # For the seed job
+# Remoting security settings (optional, adjust as needed)
+remotingSecurity:
+  enabled: true

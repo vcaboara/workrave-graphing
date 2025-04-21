@@ -1,26 +1,71 @@
 pipeline {
-    agent { docker { image 'docker:dind' } }
+    agent any
+
     stages {
-        stage('Pre-commit') {
+        stage('Checkout') {
             steps {
-                sh 'pip install pre-commit'
-                sh 'pre-commit run --all-files'
+                checkout scm
             }
         }
-        stage('Build') {
+
+        stage('Archive Job State - Pre') {
             steps {
-                sh 'docker build -t your-dockerhub-username/workrave-stats-visualizer .'
+                script {
+                    // TODO: Implement headless browser screenshot of Jenkins job page
+                    echo "// TODO: Capture screenshot of Jenkins job page (before and after run)"
+                }
             }
         }
-        stage('Push') {
+
+        // TODO: Python and Windows 2022 LTSC docker images
+        stage('Build Docker Image') {
             steps {
-                sh 'docker login -u "$DOCKER_HUB_USER" -p "$DOCKER_HUB_PASSWORD"'
-                sh 'docker push your-dockerhub-username/workrave-stats-visualizer'
+                script {
+                    def imageName = "workgraph:${env.BUILD_ID}"
+                    docker build -t "${imageName}" .
+                    env.DOCKER_IMAGE = imageName
+                }
+            }
+        }
+
+        // TODO: Generate graph via both built docker images
+        stage('Run and Generate Graph') {
+            steps {
+                script {
+                    // Ensure output directory exists in Jenkins workspace
+                    sh 'mkdir -p output'
+                    docker run --rm -v "${WORKSPACE}/output:/app/output" "${env.DOCKER_IMAGE}"
+                }
+            }
+        }
+
+        // TODO: Can compare the graphs before archiving
+        stage('Archive Graph') {
+            steps {
+                archiveArtifacts 'output/mouse_activity.png'
+            }
+        }
+
+        stage('Archive Job State - Post') {
+            steps {
+                script {
+                    // TODO: Implement headless browser screenshot of Jenkins job page
+                    echo "// TODO: Capture screenshot of Jenkins job page (before and after run)"
+                }
             }
         }
     }
-    environment {
-        DOCKER_HUB_USER = credentials('dockerhub-username').username
-        DOCKER_HUB_PASSWORD = credentials('dockerhub-password').password
+
+    post {
+        always {
+            script {
+                // TODO: Implement logic to archive the Jenkins job state screenshot
+                echo "// TODO: Archive the Jenkins job state screenshot"
+            }
+        }
     }
 }
+
+// TODO: Add stage for Unit Tests
+// TODO: Add stage for Linting and Static Analysis
+// TODO: Explore creating a slideshow/animation of job evolution
