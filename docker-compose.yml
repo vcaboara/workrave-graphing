@@ -1,8 +1,15 @@
-
+---
 services:
-  web:
+  # workrave_processor:
+  wp:
     build: .
-    ports:
-      - "5000:5000"
     volumes:
-      - ./app:/app
+      - ./workrave_stats.txt:/app/workrave_stats.txt:ro  # Mount your data file
+      - ./output:/app/output
+      - ./workrave_db_data.db:/app/workrave_data.db # Define a named volume for the database
+    user: "${HOST_UID}:${HOST_GID}"
+    environment:
+      HOST_UID: "${HOST_UID}"
+      HOST_GID: "${HOST_GID}"
+      WORKRAVE_FILE: /app/workrave_stats.txt
+    command: python process_workrave.py

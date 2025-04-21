@@ -1,2 +1,6 @@
 .pre-commit-cache
 .vscode
+.*.swp
+venv*
+output*
+workrave_db_data.db
