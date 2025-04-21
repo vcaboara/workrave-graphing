@@ -1,4 +1,6 @@
 mailer
 docker-workflow
 git
-swarm
+github-branch-source
+pipeline
+job-dsl

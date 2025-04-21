@@ -4,7 +4,7 @@ services:
   wp:
     build: .
     volumes:
-      - ./workrave_stats.txt:/app/workrave_stats.txt:ro  # Mount your data file
+      - ./samples/workrave_stats.txt:/app/workrave_stats.txt:ro  # Mount your data file
       - ./output:/app/output
       - ./workrave_db_data.db:/app/workrave_data.db # Define a named volume for the database
     user: "${HOST_UID}:${HOST_GID}"
@@ -20,19 +20,21 @@ services:
       context: ./jenkins # Look for the Dockerfile in the ./jenkins directory
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"     # Web interface
+      - "8081:8080"     # Web interface
       - "50000:50000" # Agent communication
     volumes:
       # Mount the persistent data volume for Jenkins home
       - jenkins_home:/var/jenkins_home
-      - ./screenshot_and_archive.sh:/usr/local/bin/screenshot_and_archive.sh:ro
       # No need to explicitly mount init.groovy.d or plugins.txt here
       # as they are copied into the image by the Dockerfile
     environment:
       # Set the admin password environment variable for the Groovy script
       JENKINS_ADMIN_PASSWORD: "your_very_secure_docker_password" # **CRITICAL: Replace with a strong password**
       JAVA_OPTS: "-Djenkins.install.runSetupWizard=false" # Ensure this is set
+      # Add Jenkins URL env var if your job creation script needs it
+      # JENKINS_URL: "http://localhost:8080" # Often useful for API scripts$
     restart: unless-stopped
+      # The CMD in the Dockerfile now controls the container startup process
 
   influxdb:
     image: influxdb:latest
