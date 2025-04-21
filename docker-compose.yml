@@ -25,12 +25,14 @@ services:
     volumes:
       # Mount the persistent data volume for Jenkins home
       - jenkins_home:/var/jenkins_home
+      - ./screenshot_and_archive.sh:/usr/local/bin/screenshot_and_archive.sh:ro
       # No need to explicitly mount init.groovy.d or plugins.txt here
       # as they are copied into the image by the Dockerfile
     environment:
       # Set the admin password environment variable for the Groovy script
       JENKINS_ADMIN_PASSWORD: "your_very_secure_docker_password" # **CRITICAL: Replace with a strong password**
       JAVA_OPTS: "-Djenkins.install.runSetupWizard=false" # Ensure this is set
+    restart: unless-stopped
 
   influxdb:
     image: influxdb:latest
@@ -38,6 +40,7 @@ services:
       - "8086:8086" # InfluxDB HTTP API
     volumes:
       - influxdb_data:/var/lib/influxdb
+    restart: unless-stopped
 
 volumes:
   jenkins_home: # Persistent volume for Jenkins data

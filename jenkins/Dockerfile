@@ -4,6 +4,10 @@ FROM jenkins/jenkins:lts-jdk21
 # Set the user to root temporarily to install plugins and make directories
 USER root
 
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends wkhtmltoimage xvfb && \
+    rm -rf /var/lib/apt/lists/*
+
 # Install Jenkins plugins
 # The plugins.txt file is copied from the build context (the jenkins folder)
 # The Jenkins entrypoint will automatically install these plugins on first startup

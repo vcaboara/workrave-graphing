@@ -1,0 +1,17 @@
+pipeline {
+    agent any
+    stages {
+        stage('Take Screenshot and Archive') {
+            steps {
+                script {
+                    sh "/usr/local/bin/screenshot_and_archive.sh"
+                }
+            }
+        }
+    }
+    post {
+        always {
+            archiveArtifacts artifacts: 'samples/**/*.png, samples/**/*.tar.gz', allowEmptyArchive: true
+        }
+    }
+}
