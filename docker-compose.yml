@@ -13,3 +13,32 @@ services:
       HOST_GID: "${HOST_GID}"
       WORKRAVE_FILE: /app/workrave_stats.txt
     command: python process_workrave.py
+
+  jenkins:
+    # Specify the build context and Dockerfile location
+    build:
+      context: ./jenkins # Look for the Dockerfile in the ./jenkins directory
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"     # Web interface
+      - "50000:50000" # Agent communication
+    volumes:
+      # Mount the persistent data volume for Jenkins home
+      - jenkins_home:/var/jenkins_home
+      # No need to explicitly mount init.groovy.d or plugins.txt here
+      # as they are copied into the image by the Dockerfile
+    environment:
+      # Set the admin password environment variable for the Groovy script
+      JENKINS_ADMIN_PASSWORD: "your_very_secure_docker_password" # **CRITICAL: Replace with a strong password**
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false" # Ensure this is set
+
+  influxdb:
+    image: influxdb:latest
+    ports:
+      - "8086:8086" # InfluxDB HTTP API
+    volumes:
+      - influxdb_data:/var/lib/influxdb
+
+volumes:
+  jenkins_home: # Persistent volume for Jenkins data
+  influxdb_data: # Persistent volume for InfluxDB data
