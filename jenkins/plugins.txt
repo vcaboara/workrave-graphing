@@ -4,3 +4,11 @@ git
 github-branch-source
 pipeline
 job-dsl
+docker-plugin
+workflow-job
+workflow-basic-steps
+workflow-durable-task-step
+workflow-api
+workflow-scm-step
+artifact-deployer
+job-dsl # For the seed job

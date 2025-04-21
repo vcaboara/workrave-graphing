@@ -8,8 +8,8 @@ set -e
 # --- Start the main Jenkins process ---
 echo "--- Starting Jenkins ---"
 # Execute the original Jenkins entrypoint script in the background
-# The default entrypoint for jenkins/jenkins:lts is /usr/local/bin/jenkins-foreground
-/usr/local/bin/jenkins-foreground &
+# Changed from jenkins-foreground to jenkins.sh
+/usr/local/bin/jenkins.sh &
 
 # Store the PID of the background Jenkins process
 JENKINS_PID=$!
@@ -50,15 +50,15 @@ fi
 
 # --- Run the job creation script ---
 echo "--- Running job creation script ---"
-# Assuming create_seed_job.sh is copied to /usr/local/bin in the Dockerfile
-if [ -f /usr/local/bin/create_seed_job.sh ]; then
-  /usr/local/bin/create_seed_job.sh
+# Assuming create-seed-job.sh is copied to /usr/local/bin/ in the Dockerfile
+if [ -f /usr/local/bin/create-seed-job.sh ]; then
+  /usr/local/bin/create-seed-job.sh
   echo "Job creation script finished."
 else
-  echo "Warning: Job creation script /usr/local/bin/create_seed_job.sh not found in the container."
+  echo "Warning: Job creation script /usr/local/bin/create-seed-job.sh not found in the container."
 fi
 
 
 # --- Keep the container running by waiting for the Jenkins process ---
-echo "--- Setup complete. Keeping container alive by waiting for Jenkins process ---"
+echo "--- Setup complete. Keeping container alive by waiting for the Jenkins process ---"
 wait ${JENKINS_PID}
