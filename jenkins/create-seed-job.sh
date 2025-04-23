@@ -1,6 +1,6 @@
 #!/bin/bash
 # Script: create-seed-job.sh
-# Description: Downloads jenkins-cli.jar and creates a seed job using Job DSL.
+# Description: Downloads jenkins-cli.jar and creates or updates a seed job using Job DSL.
 
 # Exit immediately if a command exits with a non-zero status.
 set -e
@@ -21,6 +21,7 @@ wait_for_jenkins() {
   local wait_interval=5
 
   while [ $attempt -lt $max_attempts ]; do
+    # Use curl to check if the /login page is accessible (requires Jenkins to be up)
     if curl -s -I "$url" > /dev/null; then
       return 0 # Success
     fi
@@ -38,10 +39,15 @@ fi
 
 echo "Jenkins is ready."
 
-echo "Downloading jenkins-cli.jar..."
-# Download jenkins-cli.jar to /tmp/
-wget "${JENKINS_URL}/jnlpJars/jenkins-cli.jar" -O "${JENKINS_CLI}"
-echo "Done"
+# Download jenkins-cli.jar if it doesn't exist
+if [ ! -f "${JENKINS_CLI}" ]; then
+  echo "Downloading jenkins-cli.jar..."
+  wget "${JENKINS_URL}/jnlpJars/jenkins-cli.jar" -O "${JENKINS_CLI}"
+  echo "Done"
+else
+  echo "jenkins-cli.jar already exists at ${JENKINS_CLI}."
+fi
+
 
 # Check if the config file exists
 if [ ! -f "${SEED_JOB_CONFIG}" ]; then
@@ -49,20 +55,40 @@ if [ ! -f "${SEED_JOB_CONFIG}" ]; then
   exit 1
 fi
 
-echo "Creating seed job ${SEED_JOB_NAME}..."
-# Use the downloaded CLI to create the job
-# Assuming you have configured security to allow this or are running in a fresh instance
-# where anonymous creation is temporarily allowed.
-# For production, you would need to authenticate the CLI command.
-java -jar "${JENKINS_CLI}" -s "${JENKINS_URL}" create-job "${SEED_JOB_NAME}" < "${SEED_JOB_CONFIG}"
+echo "Checking if seed job ${SEED_JOB_NAME} already exists..."
 
-if [ $? -eq 0 ]; then
-  echo "Seed job ${SEED_JOB_NAME} created successfully."
+# Temporarily disable set -e to capture the exit code of get-job
+set +e
+# Check if the job exists using the Jenkins CLI get-job command
+# Redirect stderr to /dev/null to suppress "No such job" errors
+java -jar "${JENKINS_CLI}" -s "${JENKINS_URL}" get-job "${SEED_JOB_NAME}" > /dev/null 2>&1
+JOB_EXISTS=$? # Capture the exit code of the get-job command
+# Re-enable set -e
+set -e
+
+if [ ${JOB_EXISTS} -eq 0 ]; then
+  echo "Seed job ${SEED_JOB_NAME} already exists. Updating job..."
+  # Use update-job if the job exists
+  java -jar "${JENKINS_CLI}" -s "${JENKINS_URL}" update-job "${SEED_JOB_NAME}" < "${SEED_JOB_CONFIG}"
+  CLI_EXIT_CODE=$?
+  if [ ${CLI_EXIT_CODE} -eq 0 ]; then
+    echo "Seed job ${SEED_JOB_NAME} updated successfully."
+  else
+    echo "Error updating seed job ${SEED_JOB_NAME}. CLI exit code: ${CLI_EXIT_CODE}"
+    exit 1
+  fi
 else
-  echo "Error creating seed job ${SEED_JOB_NAME}."
-  # Consider adding more detailed error handling based on CLI output
-  exit 1
+  echo "Seed job ${SEED_JOB_NAME} does not exist. Creating job..."
+  # Use create-job if the job does not exist
+  java -jar "${JENKINS_CLI}" -s "${JENKINS_URL}" create-job "${SEED_JOB_NAME}" < "${SEED_JOB_CONFIG}"
+  CLI_EXIT_CODE=$?
+  if [ ${CLI_EXIT_CODE} -eq 0 ]; then
+    echo "Seed job ${SEED_JOB_NAME} created successfully."
+  else
+    echo "Error creating seed job ${SEED_JOB_NAME}. CLI exit code: ${CLI_EXIT_CODE}"
+    exit 1
+  fi
 fi
 
-# Clean up the downloaded jenkins-cli.jar
-rm "${JENKINS_CLI}"
+# REMOVED: Clean up the downloaded jenkins-cli.jar (kept for potential reuse in jenkins-startup.sh)
+# rm "${JENKINS_CLI}"
