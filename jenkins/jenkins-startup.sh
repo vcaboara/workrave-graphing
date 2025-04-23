@@ -52,7 +52,8 @@ fi
 echo "--- Running job creation script ---"
 # Assuming create-seed-job.sh is copied to /usr/local/bin/ in the Dockerfile
 if [ -f /usr/local/bin/create-seed-job.sh ]; then
-  /usr/local/bin/create-seed-job.sh
+  # Pass the Jenkins URL to the job creation script if needed
+  /usr/local/bin/create-seed-job.sh "${JENKINS_URL}"
   echo "Job creation script finished."
 else
   echo "Warning: Job creation script /usr/local/bin/create-seed-job.sh not found in the container."

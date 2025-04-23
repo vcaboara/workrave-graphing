@@ -33,13 +33,15 @@ ENV JAVA_OPTS="-Djenkins.install.runSetupWizard=false"
 # Copy Groovy init scripts
 COPY init.groovy.d /usr/share/jenkins/ref/init.groovy.d
 
+# TODO: ARGs?
 ENV START_SCRIPT=jenkins-startup.sh \
     CREATE_SCRIPT=create-seed-job.sh \
+    SEED_CONFIG=seed-job-config.xml \
     USR_BIN=/usr/local/bin
 # Copy the wrapper startup script and the job creation script
 # Make sure create_seed_job.sh exists in the same directory as your Dockerfile (./jenkins/)
 # Assuming you use the shell script for job creation
-COPY ${START_SCRIPT} ${CREATE_SCRIPT} seed-job-config.xml ${USR_BIN}/
+COPY ${START_SCRIPT} ${CREATE_SCRIPT} ${SEED_CONFIG} ${USR_BIN}/
 
 # Make the scripts executable
 RUN chmod +x ${USR_BIN}/${START_SCRIPT} \
