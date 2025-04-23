@@ -38,9 +38,8 @@ ENV START_SCRIPT=jenkins-startup.sh \
     USR_BIN=/usr/local/bin
 # Copy the wrapper startup script and the job creation script
 # Make sure create_seed_job.sh exists in the same directory as your Dockerfile (./jenkins/)
-COPY ${START_SCRIPT} ${USR_BIN}/${START_SCRIPT}
 # Assuming you use the shell script for job creation
-COPY ${CREATE_SCRIPT} ${USR_BIN}/${CREATE_SCRIPT}
+COPY ${START_SCRIPT} ${CREATE_SCRIPT} seed-job-config.xml ${USR_BIN}/
 
 # Make the scripts executable
 RUN chmod +x ${USR_BIN}/${START_SCRIPT} \

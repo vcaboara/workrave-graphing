@@ -1,6 +1,6 @@
 <?xml version='1.1' encoding='UTF-8'?>
 <project>
-  <description>Seed job to create other jobs using Job DSL</description>
+  <description>Seed job to create other jobs using Job DSL.</description>
   <builders>
     <javaposse.jobdsl.plugin.ExecuteDslScripts>
       <targets>/var/jenkins_home/job-dsl-scripts/*.groovy</targets> {/* Or use associated script */}
