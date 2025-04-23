@@ -17,6 +17,7 @@ echo "Jenkins is ready."
 if [ ! -f jenkins-cli.jar ]; then
   echo "Downloading jenkins-cli.jar..."
   wget "$JENKINS_URL/jnlpJars/jenkins-cli.jar"
+  echo "Done"
 fi
 
 # Create the job using the CLI

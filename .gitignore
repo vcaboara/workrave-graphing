@@ -4,3 +4,5 @@
 venv*
 output*
 workrave_db_data.db
+.*.?n~
+*.sh~
