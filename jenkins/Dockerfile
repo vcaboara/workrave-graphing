@@ -1,3 +1,4 @@
+# 2 crit and 2 high sev vulnerabilites
 FROM jenkins/jenkins:lts-jdk21
 
 USER root
@@ -24,7 +25,6 @@ RUN echo "Downloading ${WKHTMLTOX_FILENAME} from ${WKHTMLTOX_URL}" \
     && rm /tmp/${WKHTMLTOX_FILENAME} \
     && rm -rf /var/lib/apt/lists/*
 
-
 # Install Jenkins plugins
 COPY plugins.txt /usr/share/jenkins/ref/plugins.txt
 
@@ -39,15 +39,17 @@ ENV START_SCRIPT=jenkins-startup.sh \
 # Copy the wrapper startup script and the job creation script
 # Make sure create_seed_job.sh exists in the same directory as your Dockerfile (./jenkins/)
 COPY ${START_SCRIPT} ${USR_BIN}/${START_SCRIPT}
-#COPY ${CREATE_SCRIPT} ${USR_BIN}/${CREATE_SCRIPT} # Assuming you use the shell script for job creation
+# Assuming you use the shell script for job creation
+COPY ${CREATE_SCRIPT} ${USR_BIN}/${CREATE_SCRIPT}
 
 # Make the scripts executable
-RUN chmod +x ${USR_BIN}/${START_SCRIPT} #\
-	#&& chmod +x ${USR_BIN}/${CREATE_SCRIPT}
+RUN chmod +x ${USR_BIN}/${START_SCRIPT} \
+	&& chmod +x ${USR_BIN}/${CREATE_SCRIPT}
 
 # Switch back to the jenkins user
 USER jenkins
 
 # Set the wrapper script as the command to run when the container starts
 # This replaces the default Jenkins entrypoint/cmd
-CMD ["/usr/local/bin/jenkins-startup.sh"]
+# CMD ["/usr/local/bin/jenkins-startup.sh"]
+ENTRYPOINT ["/usr/local/bin/jenkins-startup.sh"]
