@@ -5,10 +5,28 @@ USER root
 
 # Install dependencies for wkhtmltoimage, wget, and potentially curl if create_seed_job.sh uses it
 # Ensure curl is installed if your wait logic or job creation script relies on it.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    xvfb \
-    wget \
-    curl \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        xvfb \
+        wget \
+        curl \
+        apt-transport-https \
+        ca-certificates \
+        curl \
+        gnupg \
+        lsb-release \
+    # Download and add Docker's official GPG key
+    && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
+    # Set permissions for the GPG key file
+    && chmod a+r /etc/apt/keyrings/docker.gpg \
+    # Add the Docker APT repository
+    && echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
+    $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
+    # Update apt cache again with the new repository
+    && apt-get update \
+    # Install the Docker CLI package (docker-ce-cli)
+    && apt-get install -y --no-install-recommends docker-ce-cli \
     && rm -rf /var/lib/apt/lists/*
 
 # Define wkhtmltox version and download/install manually
@@ -39,13 +57,12 @@ ENV START_SCRIPT=jenkins-startup.sh \
     SEED_CONFIG=seed-job-config.xml \
     USR_BIN=/usr/local/bin
 # Copy the wrapper startup script and the job creation script
-# Make sure create_seed_job.sh exists in the same directory as your Dockerfile (./jenkins/)
-# Assuming you use the shell script for job creation
 COPY ${START_SCRIPT} ${CREATE_SCRIPT} ${SEED_CONFIG} ${USR_BIN}/
 
 # Make the scripts executable
 RUN chmod +x ${USR_BIN}/${START_SCRIPT} \
-	&& chmod +x ${USR_BIN}/${CREATE_SCRIPT}
+	&& chmod +x ${USR_BIN}/${CREATE_SCRIPT} \
+    && ls -la ${USR_BIN}
 
 # Switch back to the jenkins user
 USER jenkins

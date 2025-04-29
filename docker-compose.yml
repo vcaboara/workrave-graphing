@@ -26,8 +26,7 @@ services:
     volumes:
       # Mount the persistent data volume for Jenkins home
       - jenkins_home:/var/jenkins_home
-      # No need to explicitly mount init.groovy.d or plugins.txt here
-      # as they are copied into the image by the Dockerfile
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       # Set the admin password environment variable for the Groovy script
       JENKINS_ADMIN_PASSWORD: "your_very_secure_docker_password" # **CRITICAL: Replace with a strong password**
