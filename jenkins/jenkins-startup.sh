@@ -1,128 +1,83 @@
 #!/bin/bash
-# Script: jenkins-startup.sh
-# Description: Wrapper script to start Jenkins, run initial setup (job creation, restart),
-#              and then just keep Jenkins running on subsequent starts.
 
-# Exit immediately if a command exits with a non-zero status.
-# We will temporarily disable this around the CLI safe-restart command.
-set -e
+# Script to start Jenkins, wait for it to be ready, and create a seed job
 
+# Set the Jenkins home directory
+JENKINS_HOME="/var/jenkins_home"
+# Set the Jenkins URL (within the container)
 JENKINS_URL="http://localhost:8080"
-JENKINS_CLI="/tmp/jenkins-cli.jar"
-SETUP_MARKER="/var/jenkins_home/.setup_complete" # Marker file for initial setup completion
+# Path to the Jenkins WAR file
+JENKINS_WAR="/usr/share/jenkins/jenkins.war"
+# Path for the CLI jar
+CLI_JAR="/tmp/jenkins-cli.jar"
+# Path to the seed job config XML
+SEED_CONFIG="/usr/local/bin/seed-job-config.xml"
+# Path to the job creation script
+CREATE_SCRIPT="/usr/local/bin/create-seed-job.sh"
 
-echo "--- Jenkins Startup Script ---"
+# Check if the initial setup marker exists (created after first successful startup)
+# This prevents running the initial setup on subsequent container restarts with a persistent volume
+if [ ! -f "${JENKINS_HOME}/.jenkins_setup_complete" ]; then
+    echo "--- Jenkins Startup Script ---"
+    echo "Initial setup marker not found. Running initial setup..."
 
-# Check if the initial setup has already run
-if [ -f "${SETUP_MARKER}" ]; then
-  echo "Initial setup marker found (${SETUP_MARKER}). Skipping job creation and restart."
-  echo "--- Starting main Jenkins process in foreground ---"
-  # If setup is complete, just start the main Jenkins process in the foreground
-  # This ensures the container stays alive and Jenkins runs normally.
-  exec /usr/local/bin/jenkins.sh
-else
-  echo "Initial setup marker not found. Running initial setup..."
+    echo "--- Starting Jenkins in background for initial setup ---"
+    # Start Jenkins in the background
+    java -Djenkins.install.runSetupWizard=false -jar ${JENKINS_WAR} &
+    JENKINS_PID=$!
+    echo "Jenkins started in the background with PID ${JENKINS_PID}."
 
-  # --- Start the main Jenkins process ---
-  echo "--- Starting Jenkins in background for initial setup ---"
-  # Execute the original Jenkins entrypoint script in the background
-  /usr/local/bin/jenkins.sh &
+    echo "--- Waiting for Jenkins to be fully ready (checking CLI endpoint) ---"
+    # Wait for Jenkins to be ready by checking the CLI endpoint
+    WAIT_SECONDS=10
+    MAX_ATTEMPTS=60 # Wait up to 10 minutes (60 * 10 seconds)
+    ATTEMPT=0
 
-  # Store the PID of the background Jenkins process
-  JENKINS_PID=$!
+    while [ ${ATTEMPT} -lt ${MAX_ATTEMPTS} ]; do
+        ATTEMPT=$((ATTEMPT + 1))
+        echo "Attempt ${ATTEMPT}: Checking if Jenkins CLI endpoint is available at ${JENKINS_URL}/jnlpJars/jenkins-cli.jar..."
+        # Use curl to check the HTTP status code
+        HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${JENKINS_URL}/jnlpJars/jenkins-cli.jar)
 
-  echo "Jenkins started in the background with PID ${JENKINS_PID}."
+        if [ "${HTTP_STATUS}" -eq 200 ]; then
+            echo "Jenkins CLI endpoint is available (status 200)."
+            break # Exit the loop if successful
+        else
+            echo "Jenkins CLI endpoint not yet available (status ${HTTP_STATUS}). Waiting ${WAIT_SECONDS}s..."
+            sleep ${WAIT_SECONDS}
+        fi
 
-  # --- Wait for Jenkins to be ready ---
-  echo "--- Waiting for Jenkins to be ready ---"
-  MAX_WAIT_TIME=180 # Maximum time to wait in seconds
-  WAIT_INTERVAL=5   # Time to wait between checks in seconds
-  ELAPSED_TIME=0
-
-  wait_for_jenkins() {
-    local url="$1"
-    local max_attempts=30
-    local attempt=0
-    local wait_interval=5
-
-    while [ $attempt -lt $max_attempts ]; do
-      # Use curl to check if the /login page is accessible (requires Jenkins to be up)
-      if curl -s -I "$url" > /dev/null; then
-        return 0 # Success
-      fi
-      echo "Attempt $((attempt + 1)): Jenkins not ready. Waiting ${wait_interval}s..."
-      sleep "$wait_interval"
-      attempt=$((attempt + 1))
+        if [ ${ATTEMPT} -eq ${MAX_ATTEMPTS} ]; then
+            echo "Maximum attempts reached. Jenkins CLI endpoint did not become available."
+            echo "Please check Jenkins logs for errors."
+            exit 1 # Exit with an error code if waiting times out
+        fi
     done
-    return 1 # Timeout
-  }
 
-  if ! wait_for_jenkins "${JENKINS_URL}/login"; then
-    echo "Error: Timed out waiting for Jenkins to become ready."
-    # Kill the background Jenkins process before exiting
-    kill ${JENKINS_PID} || true
-    exit 1
-  fi
+    echo "Jenkins is ready."
 
-  echo "Jenkins is ready."
+    echo "--- Running job creation script ---"
+    # Now that Jenkins is ready, run the script to create the seed job
+    # Pass necessary variables to the script
+    ${CREATE_SCRIPT} ${JENKINS_URL} ${CLI_JAR} ${SEED_CONFIG}
 
-  # --- Run the job creation script ---
-  echo "--- Running job creation script ---"
-  # Assuming create-seed-job.sh is copied to /usr/local/bin/ in the Dockerfile
-  if [ -f /usr/local/bin/create-seed-job.sh ]; then
-    # Pass the Jenkins URL to the job creation script
-    /usr/local/bin/create-seed-job.sh "${JENKINS_URL}"
-    echo "Job creation script finished."
-  else
-    echo "Warning: Job creation script /usr/local/bin/create-seed-job.sh not found in the container."
-  fi
-
-  # --- Trigger a safe restart to activate installed plugins and config ---
-  # This is necessary because plugins installed via plugins.txt and some
-  # configuration changes (like job creation) often require a restart.
-  echo "--- Triggering safe restart to activate plugins and config ---"
-  # Wait a bit to ensure Jenkins is stable after job creation
-  sleep 10
-  # Use the downloaded CLI to trigger a safe restart
-  # Assumes the CLI is available at /tmp/jenkins-cli.jar (downloaded by create-seed-job.sh)
-  if [ -f "${JENKINS_CLI}" ]; then
-    echo "Executing safe-restart via Jenkins CLI..."
-    # Temporarily disable set -e as safe-restart command might exit with non-zero in some cases
-    set +e
-    # Note: Depending on your Jenkins security setup, you might need to authenticate the CLI command
-    # using --username and --password or an API token. The init script setup might allow anonymous
-    # CLI access initially, but this is not guaranteed or recommended for production.
-    java -jar "${JENKINS_CLI}" -s "${JENKINS_URL}" safe-restart
-    CLI_EXIT_CODE=$?
-    # Re-enable set -e
-    set -e
-    if [ ${CLI_EXIT_CODE} -eq 0 ]; then
-      echo "Safe restart command sent successfully."
+    # Check if the job creation script was successful
+    if [ $? -eq 0 ]; then
+        echo "Job creation script completed successfully."
+        # Create the marker file to indicate initial setup is complete
+        touch "${JENKINS_HOME}/.jenkins_setup_complete"
     else
-      echo "Warning: Safe restart command via CLI exited with code ${CLI_EXIT_CODE}. It might still work."
+        echo "Job creation script failed. Check its output for details."
+        exit 1 # Exit with an error code if job creation fails
     fi
-  else
-    echo "Warning: Jenkins CLI not found at ${JENKINS_CLI}. Cannot trigger safe restart."
-  fi
 
-  # --- Create the setup completion marker file ---
-  # This indicates that the initial setup steps have been performed.
-  echo "Creating setup completion marker file: ${SETUP_MARKER}"
-  touch "${SETUP_MARKER}"
-  echo "Setup completion marker created."
+    # Keep the Jenkins process running in the background
+    wait ${JENKINS_PID}
 
-  # --- Wait for the original Jenkins process to exit after the restart command ---
-  # The safe-restart command will cause the original Jenkins process (started in the background)
-  # to shut down. This script (the ENTRYPOINT) will then wait for that background process to exit.
-  # Once it exits, Docker will start a new container process, which will again run this script.
-  # The next time this script runs, it will find the SETUP_MARKER and start Jenkins in the foreground.
-  echo "--- Waiting for the original Jenkins process (PID ${JENKINS_PID}) to exit ---"
-  wait ${JENKINS_PID}
-  echo "Original Jenkins process exited."
-
-  # The container will now exit, and Docker Compose will restart it,
-  # which will then hit the 'if [ -f "${SETUP_MARKER}" ]' condition
-  # and start Jenkins in the foreground for normal operation.
+else
+    echo "--- Jenkins Startup Script ---"
+    echo "Initial setup marker found. Skipping initial setup."
+    echo "--- Starting Jenkins ---"
+    # If marker exists, just start Jenkins normally
+    exec java -Djenkins.install.runSetupWizard=false -jar ${JENKINS_WAR}
 fi
-
-echo "--- Jenkins Startup Script Finished ---"
