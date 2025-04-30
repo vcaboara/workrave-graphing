@@ -45,8 +45,7 @@ RUN echo "Downloading ${WKHTMLTOX_FILENAME} from ${WKHTMLTOX_URL}" \
 
 # Install Jenkins plugins
 COPY plugins.txt /usr/share/jenkins/ref/plugins.txt
-#RUN jenkins-plugin-cli -f /usr/share/jenkins/ref/plugins.txt
-RUN jenkins-plugin-cli --plugins workflow-aggregator
+RUN jenkins-plugin-cli -f /usr/share/jenkins/ref/plugins.txt
 
 ENV JAVA_OPTS="-Djenkins.install.runSetupWizard=false"
 

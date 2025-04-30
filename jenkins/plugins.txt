@@ -1,14 +1,13 @@
+# Core plugins
 mailer
 docker-workflow
 git
 github-branch-source
-pipeline
 job-dsl
 docker-plugin
-workflow-job
-workflow-basic-steps
-workflow-durable-task-step
-workflow-api
-workflow-scm-step
-artifact-deployer
-job-dsl # For the seed job
+
+# Meta-plugin for core Pipeline functionality and dependencies
+workflow-aggregator
+
+# If you still need artifact-deployer, verify its exact ID on plugins.jenkins.io
+# artifact-deployer
