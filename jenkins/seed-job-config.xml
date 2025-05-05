@@ -1,18 +1,17 @@
 <?xml version='1.1' encoding='UTF-8'?>
 <project>
-  <description>Seed job to create other jobs using Job DSL.</description>
+  <description>Seed job to create other jobs using Job DSL. Minimal script embedded for debugging.</description>
   <builders>
+    <hudson.tasks.Shell>
+      <command>echo "--- Starting Job DSL script processing (minimal embedded) ---"</command>
+    </hudson.tasks.Shell>
     <javaposse.jobdsl.plugin.ExecuteDslScripts>
-      <targets>/var/jenkins_home/job-dsl-scripts/*.groovy</targets> {/* Or use associated script */}
       <sandbox>true</sandbox>
       <ignoreExisting>false</ignoreExisting>
-      <usingScriptText>false</usingScriptText>
-      <restrictedRoots/>
+      <usingScriptText>true</usingScriptText>
       <removedJobAction>IGNORE</removedJobAction>
       <removedViewAction>IGNORE</removedViewAction>
-      <removedDslFileAction>IGNORE</removedDslFileAction>
       <lookupStrategy>JENKINS_ROOT</lookupStrategy>
-      <value/>
     </javaposse.jobdsl.plugin.ExecuteDslScripts>
   </builders>
   <publishers/>

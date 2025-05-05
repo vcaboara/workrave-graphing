@@ -1,74 +1,53 @@
-# 2 crit and 2 high sev vulnerabilites
-FROM jenkins/jenkins:lts-jdk21
+FROM jenkins/jenkins:lts
 
 USER root
 
-# Install dependencies for wkhtmltoimage, wget, and potentially curl if create_seed_job.sh uses it
-# Ensure curl is installed if your wait logic or job creation script relies on it.
+# Set debconf frontend to noninteractive to suppress warnings during apt-get install (optional, but good practice)
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install necessary OS packages and the Docker CLI
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        xvfb \
-        wget \
-        curl \
         apt-transport-https \
         ca-certificates \
         curl \
         gnupg \
         lsb-release \
-    # Download and add Docker's official GPG key
-    && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
-    # Set permissions for the GPG key file
-    && chmod a+r /etc/apt/keyrings/docker.gpg \
-    # Add the Docker APT repository
+    # Add Docker's official GPG key
+    && curl -fsSL https://download.docker.com/linux/debian/gpg | \
+        gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
+    # Set up the stable Docker repository
     && echo \
-    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
-    $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
-    # Update apt cache again with the new repository
+      "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian \
+      $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
+    # Update apt-get again after adding the new repository
     && apt-get update \
-    # Install the Docker CLI package (docker-ce-cli)
-    && apt-get install -y --no-install-recommends docker-ce-cli \
-    && rm -rf /var/lib/apt/lists/*
+    # Install the Docker CLI (docker-ce-cli)
+    && apt-get install -y --no-install-recommends \
+        docker-ce-cli \
+        git \
+        python3 \
+        python3-pip \
+        # Add any other packages your plugins or jobs need
+    && rm -rf /var/lib/apt/lists/* # Clean up apt cache
 
-# Define wkhtmltox version and download/install manually
-ENV WKHTMLTOX_VER="0.12.6.1-3"
-ENV WKHTMLTOX_FILENAME="wkhtmltox_${WKHTMLTOX_VER}.bookworm_amd64.deb"
-ENV WKHTMLTOX_URL="https://github.com/wkhtmltopdf/packaging/releases/download/${WKHTMLTOX_VER}/${WKHTMLTOX_FILENAME}"
-RUN echo "Downloading ${WKHTMLTOX_FILENAME} from ${WKHTMLTOX_URL}" \
-    && wget "${WKHTMLTOX_URL}" -O /tmp/${WKHTMLTOX_FILENAME} \
-    && echo "Download complete." \
-    && echo "Installing ${WKHTMLTOX_FILENAME} and dependencies..." \
-    && apt-get update \
-    && apt-get install -y /tmp/${WKHTMLTOX_FILENAME} \
-    && echo "Installation complete." \
-    && rm /tmp/${WKHTMLTOX_FILENAME} \
-    && rm -rf /var/lib/apt/lists/*
+# Unset the variable if not needed for subsequent steps (optional)
+# ENV DEBIAN_FRONTEND=""
 
-# Install Jenkins plugins
-COPY plugins.txt /usr/share/jenkins/ref/plugins.txt
-RUN jenkins-plugin-cli -f /usr/share/jenkins/ref/plugins.txt
+WORKDIR /usr/local/bin
+COPY jenkins-startup.sh create-seed-job.sh seed-job-config.xml ./
+RUN chmod +x jenkins-startup.sh create-seed-job.sh
 
-ENV JAVA_OPTS="-Djenkins.install.runSetupWizard=false"
-
-# Copy Groovy init scripts
-COPY init.groovy.d /usr/share/jenkins/ref/init.groovy.d
-
-# TODO: ARGs?
-ENV START_SCRIPT=jenkins-startup.sh \
-    CREATE_SCRIPT=create-seed-job.sh \
-    SEED_CONFIG=seed-job-config.xml \
-    USR_BIN=/usr/local/bin
-# Copy the wrapper startup script and the job creation script
-COPY ${START_SCRIPT} ${CREATE_SCRIPT} ${SEED_CONFIG} ${USR_BIN}/
-
-# Make the scripts executable
-RUN chmod +x ${USR_BIN}/${START_SCRIPT} \
-	&& chmod +x ${USR_BIN}/${CREATE_SCRIPT} \
-    && ls -la ${USR_BIN}
-
-# Switch back to the jenkins user
 USER jenkins
 
-# Set the wrapper script as the command to run when the container starts
-# This replaces the default Jenkins entrypoint/cmd
-# CMD ["/usr/local/bin/jenkins-startup.sh"]
+WORKDIR /usr/share/jenkins
+# Copy the plugins list file - The official entrypoint uses this for auto-installation
+# If your Groovy script needs seed-job-config.xml, copy it to a place the script can access
+COPY plugins.txt seed-job-config.xml ./ref/
+
+# Copy your initial setup Groovy scripts
+# Scripts in init.groovy.d are executed by the official entrypoint on first run
+COPY init.groovy.d/create-seed-job.groovy ./ref/init.groovy.d/
+
+# The base image already defines the correct ENTRYPOINT, no need to override it
 ENTRYPOINT ["/usr/local/bin/jenkins-startup.sh"]
